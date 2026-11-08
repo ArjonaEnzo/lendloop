@@ -216,6 +216,25 @@ needed beyond that. Emails are never returned to the browser.
   → force overdue (seed/dev mutation that backdates a loan) → run reminder workflow → activity shows in app
   → re-run → no duplicate.
 
+## 8b. Security hardening & review (added 2026-11-08)
+- **Dependencies:** exact versions pinned (`save-exact`), lockfile committed, `pnpm audit` in CI
+  (GitHub Actions, free), Dependabot config for npm + Docker images. n8n/Mailpit images pinned by tag.
+- **Next.js security headers** (`next.config`): CSP (allowing Clerk + Convex origins), `X-Frame-Options: DENY`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy`.
+- **Input validation:** every Convex function declares `args` validators (`v.*`); server-side length/enum
+  checks. HTTP actions reject bodies > 16 KB and malformed JSON with 400.
+- **Abuse limits:** cap pending requests per user (e.g. 10) and tools per user (e.g. 50) in mutations;
+  HTTP endpoints only answer signed requests (unsigned → 401 before any DB work).
+- **Review step (day 3):** run the `sentry-security-review` skill on the full codebase + a manual OWASP
+  Top 10 checklist; findings and fixes recorded in `docs/security-review.md`.
+- **Honesty in README:** state clearly this is a take-home with a self-review, not a professional audit;
+  production would add an external pentest/review.
+- **Standards framing:** README maps decisions to control families (access control, cryptography,
+  logging/monitoring, secrets management, data minimization) using "aligned with" language
+  (OWASP ASVS / ISO/IEC 27001 Annex A areas). **Never claim compliance** — ISO 27001 and SOC 2 certify an
+  organization, not an app. "Production changes" adds what a health-data version would need under HIPAA
+  (encryption at rest, immutable audit trail, BAAs with vendors, retention policy) as a plan only.
+
 ## 9. Repo deliverables
 - `n8n/workflows/*.json` exported without credentials (checked by a `scripts/check-secrets` grep).
 - `docker-compose.yml` (n8n + Mailpit), `.env.example` files (no real values).
