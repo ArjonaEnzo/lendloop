@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: npm # pnpm lockfile is supported by the npm ecosystem
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: docker-compose # n8n, Mailpit, Caddy, cloudflared image tags
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
