@@ -1,3 +1,4 @@
+import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { buildLoanEventPayload, eventIdFor, recipientRoleFor } from "./payloads";
@@ -31,6 +32,12 @@ export async function enqueueLoanEvent(ctx: MutationCtx, loan: Doc<"loans">): Pr
     recipient: { email: recipient.email, name: recipient.name },
   });
 
-  await ctx.db.insert("outbox", { eventId, payload, status: "pending", attempts: 0 });
-  // Task 7 adds: schedule delivery with ctx.scheduler.runAfter(0, ...)
+  const outboxId = await ctx.db.insert("outbox", {
+    eventId,
+    payload,
+    status: "pending",
+    attempts: 0,
+  });
+  // Scheduled functions are part of the transaction: if the mutation rolls back, no delivery runs.
+  await ctx.scheduler.runAfter(0, internal.outbox.deliver, { outboxId });
 }
