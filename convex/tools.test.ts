@@ -146,7 +146,6 @@ describe("tools.update / tools.remove ownership", () => {
     );
   });
 
-  test.todo("remove cancels the tool's requested loans and notifies (needs Task 4)");
 });
 
 describe("tools.listCatalog", () => {

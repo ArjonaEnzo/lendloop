@@ -159,7 +159,7 @@ export const update = mutation({
 /**
  * Soft delete. Owner, or admin (moderation).
  * - Owner is blocked while an approved loan is not yet returned.
- * - Pending requests for the tool are auto-cancelled and their borrowers notified.
+ * - Pending requests for the tool are auto-declined, so their borrowers get notified.
  */
 export const remove = mutation({
   args: { toolId: v.id("tools") },
@@ -177,20 +177,20 @@ export const remove = mutation({
       if (active) throw new ConvexError("Tool is currently lent out");
     }
 
-    await cancelPendingRequests(ctx, toolId);
+    await declinePendingRequests(ctx, toolId);
     await ctx.db.patch("tools", toolId, { deletedAt: Date.now() });
     return null;
   },
 });
 
-async function cancelPendingRequests(ctx: MutationCtx, toolId: Id<"tools">) {
+async function declinePendingRequests(ctx: MutationCtx, toolId: Id<"tools">) {
   const pending = await ctx.db
     .query("loans")
     .withIndex("by_toolId_and_status", (q) => q.eq("toolId", toolId).eq("status", "requested"))
     .take(LIST_LIMIT);
   const now = Date.now();
   for (const loan of pending) {
-    await ctx.db.patch("loans", loan._id, { status: "cancelled", updatedAt: now });
-    await enqueueLoanEvent(ctx, { ...loan, status: "cancelled", updatedAt: now });
+    await ctx.db.patch("loans", loan._id, { status: "declined", updatedAt: now });
+    await enqueueLoanEvent(ctx, { ...loan, status: "declined", updatedAt: now });
   }
 }
