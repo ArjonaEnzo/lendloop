@@ -217,7 +217,7 @@ flowchart LR
 |---|---|---|
 | Request notification | Webhook (raw body) | verify HMAC → 401 if bad → compose plain-text email → send (Mailpit) → signed write-back → respond 200 |
 | Overdue reminders | Daily 09:00 UTC | signed `GET /api/overdue-loans` → one email per loan → signed write-back `reminder:{loanId}:{date}` |
-| Error handler | Error workflow of the two above | record in Convex first (`/api/workflow-errors`, shown in `/admin`) → email ops |
+| Error handler | Error workflow of the two above | record in Convex (`/api/workflow-errors`, shown in `/admin`) → email ops; each step continues on error, so either one still alerts |
 
 HTTP Request and Send Email nodes retry 3 times. The exported JSON contains no credentials and no secret
 values: n8n reads the secrets from its environment.
@@ -256,6 +256,9 @@ values: n8n reads the secrets from its environment.
   direction, and each can be rotated alone (`setup-local-secrets.sh --force`).
 - **Idempotency keys:** `notify:{eventId}` (eventId = `loan:{loanId}:{status}:{updatedAt}`),
   `reminder:{loanId}:{YYYY-MM-DD}`, `error:{executionId}`. A write-back key must belong to its own loan.
+- **Email delivery is at-least-once.** n8n answers 200 only after the email and the write-back. If the
+  write-back keeps failing (for example Convex is down), n8n answers 500, Convex retries, and the
+  same email can be sent up to 4 times (one per delivery attempt). The production fix is below.
 - **No silent failures.** Failed deliveries (after retries) and failed n8n runs are stored and shown in
   `/admin`. Bad config (no URL or secret) fails at once instead of retrying.
 - **HTTP endpoints:** body > 16 KB → 413 (before the HMAC work), bad signature → 401 with no detail,
@@ -266,11 +269,13 @@ values: n8n reads the secrets from its environment.
 - **Abuse limits:** ≤ 50 tools per user, ≤ 10 pending requests per borrower, ≤ 20 new requests per
   borrower per 24 h (stops a request/cancel loop from flooding an owner with emails), length limits on
   every text field.
-- **Security headers** (`next.config.ts`, `lib/securityHeaders.ts`): a CSP that allows only this site, the
-  exact Clerk host (read from the publishable key) and the exact Convex host (HTTPS + WebSocket);
+- **Security headers** (`next.config.ts`, `lib/securityHeaders.ts`): a CSP whose network and script
+  sources are this site, the exact Clerk host (read from the publishable key), the exact Convex host
+  (HTTPS + WebSocket), plus what Clerk needs (`img.clerk.com`, `clerk-telemetry.com`, Cloudflare
+  Turnstile). Scripts still allow `'unsafe-inline'` (Next.js inline bootstrap; see production plans).
   `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, `strict-origin-when-cross-origin`,
   `Permissions-Policy` with camera, microphone and location off.
-- **Supply chain:** exact versions (`save-exact`), committed lockfile, CI with `pnpm audit
+- **Supply chain:** exact versions in `package.json` (`save-exact`), committed lockfile, CI with `pnpm audit
   --audit-level=high`, GitHub Actions pinned to commit SHAs with read-only permissions, Dependabot for npm,
   Docker images and actions. Docker images pinned by tag.
 - **Self-review:** [`docs/security-review.md`](docs/security-review.md). It is a self-review, **not a

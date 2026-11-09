@@ -80,6 +80,7 @@ argument. The admin role is recomputed on every request (verified email + `ADMIN
 | F-2 | Low | The display name comes from the Clerk token (user-editable) and is shown to other users and put in emails, with no length limit. | Trimmed and capped at 80 characters in `users.store`. | `users.test.ts` › "caps a very long display name at 80 characters" (RED → GREEN) | `b41c499` |
 | F-3 (day 1) | High | The admin role was read from the stored user row, so removing an email from `ADMIN_EMAILS` did not take effect until the next sign-in. | Role recomputed on every request from the live token. | `users.test.ts` › "revoking ADMIN_EMAILS removes admin immediately…" | `64d2c8a` |
 | F-4 (day 2) | Medium (accepted) | Canonical string `timestamp.METHOD.path.body` could be ambiguous if fields were free-form. | Kept: verifiers fix METHOD and path themselves, timestamp must be digits, body is last, so field borders cannot move. | `hmac.test.ts` | — |
+| F-6 (final review) | Medium | In the error workflow, if Convex was the failing side, "Record in LendLoop" failed too and the workflow stopped before emailing ops. | "Record in LendLoop" also continues on error, so record and ops email are attempted independently. | `n8n/workflows.test.ts` (RED → GREEN) | `6d19c8b` |
 | F-5 (day 2) | Medium | A signed caller could write an idempotency key for a different loan. | Key must start with the loan's own id and match the kind. | `http.test.ts` | `48d1bfc` |
 
 ## Accepted risks (known, documented, not fixed)
@@ -87,8 +88,9 @@ argument. The admin role is recomputed on every request (verified email + `ADMIN
 - **Replay inside the 5-minute window.** A captured, valid request could be replayed within 300 s.
   Write-backs are protected by idempotency keys (no new row). A replayed Convex → n8n notification could
   send the same email twice. Production plan: a nonce store (remember signature or eventId for 5 min).
-- **At-least-once email.** If n8n sends the email but the response to Convex is lost, Convex retries and the
-  email can be sent again. Exactly-once would need n8n to check the `notify:{eventId}` key before sending.
+- **At-least-once email.** If n8n sends the email but the response to Convex is lost, or the write-back to
+  Convex keeps failing, Convex retries and the email is sent again: at most 4 times per event (one per
+  delivery attempt). Exactly-once would need n8n to check the `notify:{eventId}` key before sending.
 - **CSP keeps `'unsafe-inline'` for scripts.** Next.js App Router adds inline scripts. A nonce-based CSP
   removes this but forces dynamic rendering. Production plan.
 - **No global rate limiting.** Limits are per user and per action (tools, pending, daily requests). An
