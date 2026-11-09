@@ -1,0 +1,311 @@
+{
+  "updatedAt": "2026-11-09T15:29:43.000Z",
+  "createdAt": "2026-11-09T15:29:23.309Z",
+  "id": "llOverdueRemind1",
+  "name": "LendLoop — Overdue reminders",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Daily 09:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -100
+      ],
+      "id": "7ea57280-3d10-46fb-ab94-1058757e8c2c"
+    },
+    {
+      "parameters": {},
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        100
+      ],
+      "id": "2a8eb395-9847-4a49-8089-23cef4ad122d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nfunction signConvex(method, path, body) {\n  const ts = String(Math.floor(Date.now() / 1000));\n  const signature = crypto\n    .createHmac('sha256', $env.N8N_TO_LENDLOOP_SECRET)\n    .update(`${ts}.${method}.${path}.${body}`)\n    .digest('hex');\n  return { url: $env.CONVEX_SITE_URL + path, body, ts, signature };\n}\nreturn [{ json: signConvex('GET', '/api/overdue-loans', '') }];"
+      },
+      "name": "Sign GET",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "76846dcb-94ad-41c7-bd5c-1fa3bbf8e1a9"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.ts }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Get overdue loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "id": "2b95fd0d-de1d-4404-8c55-7fe111ecd4fd"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "loans",
+        "options": {}
+      },
+      "name": "One item per loan",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "id": "ac959ec2-ccce-4fa3-86ba-ca5998109cc9"
+    },
+    {
+      "parameters": {
+        "jsCode": "const l = $json;\nconst oneLine = (s) => String(s).replace(/[\\r\\n]+/g, ' ').slice(0, 120);\nconst tool = oneLine(l.toolName);\nconst days = l.daysOverdue === 1 ? '1 day' : l.daysOverdue + ' days';\nreturn {\n  json: {\n    loanId: l.loanId,\n    to: l.borrower.email,\n    subject: `[LendLoop] Reminder: please return ${tool}`,\n    text: `Hi ${oneLine(l.borrower.name || 'neighbor')},\\n\\nYour loan of ${tool} ended on ${l.endDate} (${days} ago). Please return it to the owner and let them mark it returned in LendLoop.\\n\\n— LendLoop`,\n  },\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "name": "Compose reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "bcde8895-cdde-440e-a910-0bc8abcbfa15"
+    },
+    {
+      "parameters": {
+        "fromEmail": "LendLoop <no-reply@lendloop.local>",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "name": "Send reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "llMailpitSmtp001",
+          "name": "Mailpit SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "id": "fb6b1d4d-4172-42c7-8aae-5c41ae6879f4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nfunction signConvex(method, path, body) {\n  const ts = String(Math.floor(Date.now() / 1000));\n  const signature = crypto\n    .createHmac('sha256', $env.N8N_TO_LENDLOOP_SECRET)\n    .update(`${ts}.${method}.${path}.${body}`)\n    .digest('hex');\n  return { url: $env.CONVEX_SITE_URL + path, body, ts, signature };\n}\nconst loanId = $('Compose reminder').item.json.loanId;\nconst today = new Date().toISOString().slice(0, 10); // UTC, same as Convex\nconst body = JSON.stringify({\n  idempotencyKey: 'reminder:' + loanId + ':' + today,\n  loanId,\n  kind: 'overdue_reminder_sent',\n  detail: 'reminder email sent',\n});\nreturn { json: signConvex('POST', '/api/automation-events', body) };",
+        "mode": "runOnceForEachItem"
+      },
+      "name": "Sign write-back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "714522f0-e1b4-404a-8e97-64f36244c19e"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.ts }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Record in LendLoop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "id": "d7c2e72e-0ae9-4c26-9eb6-3657e637182b"
+    }
+  ],
+  "connections": {
+    "Daily 09:00 UTC": {
+      "main": [
+        [
+          {
+            "node": "Sign GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Sign GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign GET": {
+      "main": [
+        [
+          {
+            "node": "Get overdue loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get overdue loans": {
+      "main": [
+        [
+          {
+            "node": "One item per loan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per loan": {
+      "main": [
+        [
+          {
+            "node": "Compose reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose reminder": {
+      "main": [
+        [
+          {
+            "node": "Send reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send reminder": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign write-back": {
+      "main": [
+        [
+          {
+            "node": "Record in LendLoop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "saveManualExecutions": true,
+    "errorWorkflow": "llErrorHandler01"
+  },
+  "staticData": {
+    "node:Daily 09:00 UTC": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "74dd1f41-2a66-423a-80a3-569f5b9c6cea",
+  "versionCounter": 1,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

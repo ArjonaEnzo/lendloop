@@ -9,11 +9,16 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as automation from "../automation.js";
+import type * as dev from "../dev.js";
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dates from "../lib/dates.js";
+import type * as lib_hmac from "../lib/hmac.js";
 import type * as lib_outbox from "../lib/outbox.js";
 import type * as lib_payloads from "../lib/payloads.js";
 import type * as loans from "../loans.js";
+import type * as outbox from "../outbox.js";
 import type * as tools from "../tools.js";
 import type * as users from "../users.js";
 
@@ -25,11 +30,16 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  automation: typeof automation;
+  dev: typeof dev;
+  http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/dates": typeof lib_dates;
+  "lib/hmac": typeof lib_hmac;
   "lib/outbox": typeof lib_outbox;
   "lib/payloads": typeof lib_payloads;
   loans: typeof loans;
+  outbox: typeof outbox;
   tools: typeof tools;
   users: typeof users;
 }>;

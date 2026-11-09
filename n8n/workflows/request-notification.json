@@ -1,0 +1,306 @@
+{
+  "updatedAt": "2026-11-09T15:29:37.000Z",
+  "createdAt": "2026-11-09T15:29:23.317Z",
+  "id": "llRequestNotif01",
+  "name": "LendLoop — Request notification",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-loan-events",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "name": "Loan event webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5d0c7b3e-2f4a-4c1b-9a8e-1f6b2c3d4e5f",
+      "id": "19f99e36-2e1e-4068-bff7-88e90be3adea"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifies the HMAC signature from Convex over the RAW body (never re-serialized JSON).\nconst crypto = require('crypto');\nconst PATH = '/webhook/lendloop-loan-events'; // constant: the tunnel host differs from what n8n sees\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst ts = headers['x-lendloop-timestamp'];\nconst sig = String(headers['x-lendloop-signature'] || '').toLowerCase();\n\nlet raw = '';\nif (item.binary && item.binary.data) {\n  const buf = await this.helpers.getBinaryDataBuffer(0, 'data');\n  raw = buf.toString('utf8');\n}\n\nconst secret = $env.LENDLOOP_TO_N8N_SECRET;\nconst now = Math.floor(Date.now() / 1000);\nlet ok = false;\nlet reason = 'missing';\nif (secret && ts && sig && /^\\d+$/.test(ts)) {\n  if (Math.abs(now - Number(ts)) > 300) {\n    reason = 'stale';\n  } else {\n    const expected = crypto.createHmac('sha256', secret).update(`${ts}.POST.${PATH}.${raw}`).digest('hex');\n    const a = Buffer.from(expected, 'utf8');\n    const b = Buffer.from(sig, 'utf8');\n    ok = a.length === b.length && crypto.timingSafeEqual(a, b);\n    reason = ok ? 'ok' : 'bad_signature';\n  }\n}\nif (!ok) return [{ json: { ok: false, reason } }];\n\n// Signed by Convex, so a malformed payload is a bug: fail loudly (error workflow + Convex retry).\nconst p = JSON.parse(raw);\nconst EVENTS = ['loan.requested', 'loan.approved', 'loan.declined', 'loan.cancelled', 'loan.returned'];\nconst isStr = (x) => typeof x === 'string' && x.length > 0 && x.length <= 500;\nif (!isStr(p.eventId) || !isStr(p.loanId) || !EVENTS.includes(p.event) || !p.recipient ||\n    !isStr(p.recipient.email) || !p.recipient.email.includes('@') || typeof p.recipient.name !== 'string' ||\n    !isStr(p.toolName) || !isStr(p.startDate) || !isStr(p.endDate)) {\n  throw new Error('Invalid LendLoop payload for event ' + String(p.eventId));\n}\nreturn [{ json: { ok: true, payload: p } }];"
+      },
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "21381a2c-fbff-4f0d-9dd7-955ccccc8e43"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b1f3a3c2-6d0e-4f5a-8c7b-0a1b2c3d4e5f",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "e958d22c-2ddb-4938-81c0-8b9c44c0bfb6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $json.payload;\nconst oneLine = (s) => String(s).replace(/[\\r\\n]+/g, ' ').slice(0, 120);\nconst tool = oneLine(p.toolName);\nconst name = oneLine(p.recipient.name || 'neighbor');\nconst dates = `${p.startDate} to ${p.endDate}`;\nconst T = {\n  'loan.requested': [`New request for your ${tool}`, `Someone wants to borrow your ${tool} from ${dates}. Open LendLoop to approve or decline it.`],\n  'loan.approved': [`Approved: ${tool}`, `Your request to borrow ${tool} (${dates}) was approved. Contact the owner through LendLoop to pick it up.`],\n  'loan.declined': [`Declined: ${tool}`, `Your request to borrow ${tool} (${dates}) was declined.`],\n  'loan.cancelled': [`Request cancelled: ${tool}`, `A request to borrow your ${tool} (${dates}) was cancelled.`],\n  'loan.returned': [`Return confirmed: ${tool}`, `The owner confirmed you returned ${tool}. Thanks for borrowing responsibly.`],\n};\nconst [subject, line] = T[p.event];\nreturn [{ json: { to: p.recipient.email, subject: '[LendLoop] ' + subject, text: `Hi ${name},\\n\\n${line}\\n\\n— LendLoop\\nBorrow what you need. Lend what you don't.` } }];"
+      },
+      "name": "Compose email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -100
+      ],
+      "id": "fc95e282-40b7-4946-9476-08d1241ceda5"
+    },
+    {
+      "parameters": {
+        "fromEmail": "LendLoop <no-reply@lendloop.local>",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        -100
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "llMailpitSmtp001",
+          "name": "Mailpit SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "id": "737d2c82-ce74-4c40-93fb-6e61beeeda4e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nfunction signConvex(method, path, body) {\n  const ts = String(Math.floor(Date.now() / 1000));\n  const signature = crypto\n    .createHmac('sha256', $env.N8N_TO_LENDLOOP_SECRET)\n    .update(`${ts}.${method}.${path}.${body}`)\n    .digest('hex');\n  return { url: $env.CONVEX_SITE_URL + path, body, ts, signature };\n}\nconst p = $('Verify HMAC').first().json.payload;\nconst body = JSON.stringify({\n  idempotencyKey: 'notify:' + p.eventId,\n  loanId: p.loanId,\n  kind: 'request_notification_sent',\n  detail: p.event + ' email sent',\n});\nreturn [{ json: signConvex('POST', '/api/automation-events', body) }];"
+      },
+      "name": "Sign write-back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -100
+      ],
+      "id": "15490635-8fe9-4825-97b7-c8213b46714a"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.ts }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Record in LendLoop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "id": "bffdf8bc-d7c8-47db-8d5e-8459a17bfa88"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        -100
+      ],
+      "id": "1ffaaa5d-cb48-493f-8b15-9400520b13c6"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "unauthorized",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        120
+      ],
+      "id": "4f9661ad-0b90-419b-bf6f-92b6ec7368b5"
+    }
+  ],
+  "connections": {
+    "Loan event webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
+            "node": "Compose email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose email": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign write-back": {
+      "main": [
+        [
+          {
+            "node": "Record in LendLoop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record in LendLoop": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "saveManualExecutions": true,
+    "errorWorkflow": "llErrorHandler01"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "1799d862-28b3-4a4e-a92e-e056d4829789",
+  "versionCounter": 1,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

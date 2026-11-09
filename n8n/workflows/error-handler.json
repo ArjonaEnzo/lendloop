@@ -1,0 +1,153 @@
+{
+  "updatedAt": "2026-11-09T15:29:31.000Z",
+  "createdAt": "2026-11-09T15:29:23.300Z",
+  "id": "llErrorHandler01",
+  "name": "LendLoop — Error handler",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7fc29e43-e696-4bb9-87c5-0f73d76057c5"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nfunction signConvex(method, path, body) {\n  const ts = String(Math.floor(Date.now() / 1000));\n  const signature = crypto\n    .createHmac('sha256', $env.N8N_TO_LENDLOOP_SECRET)\n    .update(`${ts}.${method}.${path}.${body}`)\n    .digest('hex');\n  return { url: $env.CONVEX_SITE_URL + path, body, ts, signature };\n}\nconst e = $input.first().json;\nconst exec = e.execution || {};\nconst message = String((exec.error && exec.error.message) || 'Unknown error').slice(0, 1000);\nconst record = {\n  executionId: String(exec.id || 'trigger-' + Date.now()),\n  workflowName: String((e.workflow && e.workflow.name) || 'unknown').slice(0, 200),\n  nodeName: exec.lastNodeExecuted ? String(exec.lastNodeExecuted).slice(0, 200) : undefined,\n  message,\n};\nreturn [{ json: { ...signConvex('POST', '/api/workflow-errors', JSON.stringify(record)), record, executionUrl: exec.url || '' } }];"
+      },
+      "name": "Sign error record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "7ea9ff7f-bf95-461a-928a-1247b9cd85fc"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.ts }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Record in LendLoop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "id": "d28d3512-0fb2-4a9d-83b1-356ae6561608"
+    },
+    {
+      "parameters": {
+        "fromEmail": "LendLoop <no-reply@lendloop.local>",
+        "toEmail": "={{ $env.OPS_EMAIL }}",
+        "subject": "=[LendLoop] Workflow failed: {{ $('Sign error record').first().json.record.workflowName }}",
+        "emailFormat": "text",
+        "text": "=Workflow: {{ $('Sign error record').first().json.record.workflowName }}\nNode: {{ $('Sign error record').first().json.record.nodeName || '-' }}\nExecution: {{ $('Sign error record').first().json.record.executionId }} {{ $('Sign error record').first().json.executionUrl }}\nError: {{ $('Sign error record').first().json.record.message }}\n\nAlso recorded in LendLoop /admin.",
+        "options": {}
+      },
+      "name": "Email ops",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "llMailpitSmtp001",
+          "name": "Mailpit SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "id": "1008ce39-23e6-46ac-af42-cd84df5b3d51"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sign error record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign error record": {
+      "main": [
+        [
+          {
+            "node": "Record in LendLoop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record in LendLoop": {
+      "main": [
+        [
+          {
+            "node": "Email ops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "b005dff6-e7dc-4569-a8ee-6ecc9a3054eb",
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
