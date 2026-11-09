@@ -2,6 +2,8 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getUserOrNull, roleFor } from "./lib/auth";
 
+const MAX_NAME = 80;
+
 /**
  * Creates or refreshes the current user's row from their Clerk token.
  * The client calls this once after sign-in. The stored role is only a cache;
@@ -15,7 +17,8 @@ export const store = mutation({
 
     const email = identity.email ?? "";
     const role = roleFor(identity);
-    const name = identity.givenName ?? identity.name ?? "Neighbor";
+    // The name is user-editable in Clerk and shown to other users: trim and cap it.
+    const name = (identity.givenName ?? identity.name ?? "").trim().slice(0, MAX_NAME) || "Neighbor";
 
     const existing = await getUserOrNull(ctx);
     if (existing) {

@@ -99,6 +99,25 @@ describe("loans.request", () => {
     );
     expect((await outboxRows(t)).length).toBe(10);
   });
+
+  // Security review: each request and each cancel emails the owner. Without a daily cap, a
+  // request -> cancel loop never hits the pending limit and can flood an owner's inbox.
+  test("caps new requests at 20 per borrower per 24 hours, so request/cancel cannot flood an owner", async () => {
+    const { t, bob, toolId } = await setup();
+    for (let i = 0; i < 20; i++) {
+      const loanId = await bob.as.mutation(api.loans.request, { toolId, ...range });
+      await bob.as.mutation(api.loans.cancel, { loanId });
+    }
+    await expect(bob.as.mutation(api.loans.request, { toolId, ...range })).rejects.toThrow(
+      "Too many requests today",
+    );
+    expect((await outboxRows(t)).length).toBe(40);
+
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
+    await expect(
+      bob.as.mutation(api.loans.request, { toolId, startDate: "2026-11-11", endDate: "2026-11-12" }),
+    ).resolves.toBeDefined();
+  });
 });
 
 describe("state machine", () => {

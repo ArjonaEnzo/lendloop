@@ -22,6 +22,16 @@ afterEach(() => {
 });
 
 describe("users.store", () => {
+  // Security review: the display name comes from the Clerk token (user-editable) and is shown
+  // to other users and put in emails, so it is trimmed and capped like tool names.
+  test("caps a very long display name at 80 characters", async () => {
+    const t = convexTest(schema, modules);
+    const longName = { ...alice, givenName: undefined, name: "  " + "A".repeat(300) + "  " };
+    await t.withIdentity(longName).mutation(api.users.store, {});
+    const me = await t.withIdentity(longName).query(api.users.me, {});
+    expect(me?.name).toBe("A".repeat(80));
+  });
+
   test("creates a regular user", async () => {
     const t = convexTest(schema, modules);
     await t.withIdentity(alice).mutation(api.users.store, {});

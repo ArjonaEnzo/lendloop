@@ -8,6 +8,10 @@ import type { LoanStatus } from "./lib/payloads";
 import { getLiveTool } from "./tools";
 
 const MAX_PENDING_PER_BORROWER = 10;
+// Every request and every cancel emails the owner. The pending cap alone does not stop a
+// request -> cancel loop, so new requests are also capped per rolling 24 hours.
+const MAX_REQUESTS_PER_DAY = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const LIST_LIMIT = 200;
 
 // ---------- Helpers ----------
@@ -71,6 +75,10 @@ export const request = mutation({
       .withIndex("by_borrowerId", (q) => q.eq("borrowerId", me._id))
       .order("desc")
       .take(LIST_LIMIT);
+    const now = Date.now();
+    const madeToday = myLoans.filter((l) => l._creationTime > now - DAY_MS).length;
+    if (madeToday >= MAX_REQUESTS_PER_DAY) throw new ConvexError("Too many requests today, try again tomorrow");
+
     const myPending = myLoans.filter((l) => l.status === "requested");
     if (myPending.length >= MAX_PENDING_PER_BORROWER) throw new ConvexError("Too many pending requests");
     const duplicate = myPending.some(
@@ -78,7 +86,6 @@ export const request = mutation({
     );
     if (duplicate) throw new ConvexError("You already requested these dates");
 
-    const now = Date.now();
     const loanId = await ctx.db.insert("loans", {
       toolId,
       borrowerId: me._id,
