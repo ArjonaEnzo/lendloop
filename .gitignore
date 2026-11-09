@@ -29,3 +29,8 @@ n8n/data/
 
 # superpowers plan workspace
 .superpowers/
+
+# Convex agent skill bundle (installed locally by `convex dev`, not part of the deliverable)
+.agents/
+.claude/skills/
+skills-lock.json
