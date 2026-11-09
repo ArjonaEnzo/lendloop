@@ -107,3 +107,18 @@ describe("users.me", () => {
     expect(me).not.toHaveProperty("email");
   });
 });
+
+// Review focus 4: signed in with Clerk, but users.store has not run yet.
+describe("signed in but not registered", () => {
+  test("a mutation fails with a clear 'User not registered' error, not a crash", async () => {
+    const t = convexTest(schema, modules);
+    await expect(
+      t.withIdentity(alice).mutation(api.tools.create, {
+        name: "Ladder",
+        category: "other",
+        condition: "good",
+        description: "",
+      }),
+    ).rejects.toThrow("User not registered");
+  });
+});
