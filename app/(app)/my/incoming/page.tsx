@@ -34,6 +34,7 @@ export default function IncomingRequestsPage() {
             variant: "danger",
             when: (l) => l.status === "requested",
             run: (loanId) => decline({ loanId }),
+            confirm: "Decline this request? The borrower will be notified.",
           },
           {
             label: "Mark returned",

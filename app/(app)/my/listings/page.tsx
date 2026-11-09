@@ -17,14 +17,18 @@ export default function MyListingsPage() {
   const remove = useMutation(api.tools.remove);
   const [editing, setEditing] = useState<Id<"tools"> | null>(null);
   const [rowError, setRowError] = useState<{ id: Id<"tools">; message: string } | null>(null);
+  const [removing, setRemoving] = useState<Id<"tools"> | null>(null);
 
   async function handleRemove(toolId: Id<"tools">, name: string) {
     if (!window.confirm(`Remove "${name}"? Pending requests for it will be declined.`)) return;
     setRowError(null);
+    setRemoving(toolId);
     try {
       await remove({ toolId });
     } catch (err) {
       setRowError({ id: toolId, message: errorMessage(err) });
+    } finally {
+      setRemoving(null);
     }
   }
 
@@ -72,8 +76,12 @@ export default function MyListingsPage() {
                     </div>
                     <div className="flex gap-2">
                       <Button onClick={() => setEditing(tool._id)}>Edit</Button>
-                      <Button variant="danger" onClick={() => handleRemove(tool._id, tool.name)}>
-                        Remove
+                      <Button
+                        variant="danger"
+                        disabled={removing !== null}
+                        onClick={() => handleRemove(tool._id, tool.name)}
+                      >
+                        {removing === tool._id ? "Removing…" : "Remove"}
                       </Button>
                     </div>
                   </div>

@@ -31,13 +31,18 @@ function AdminDashboard() {
   const setTrusted = useMutation(api.admin.setTrustedLender);
   const removeTool = useMutation(api.tools.remove);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
+  // One action at a time: every button is disabled while a mutation is running.
   async function run(action: () => Promise<unknown>) {
     setError("");
+    setBusy(true);
     try {
       await action();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -54,7 +59,7 @@ function AdminDashboard() {
           {(rows) => (
             <ul className="mb-4 space-y-2">
               {rows.map((r) => (
-                <li key={r._id} className="rounded border-2 border-late bg-paper p-3 text-sm">
+                <li key={r._id} className="rounded border-2 border-late bg-paper p-3 text-sm [overflow-wrap:anywhere]">
                   <span className="font-bold text-late">Delivery failed</span> after {r.attempts} attempts:{" "}
                   {r.lastError} <span className="text-ink-soft">({r.eventId})</span>
                 </li>
@@ -66,7 +71,7 @@ function AdminDashboard() {
           {(rows) => (
             <ul className="space-y-2">
               {rows.map((r) => (
-                <li key={r._id} className="rounded border-2 border-late bg-paper p-3 text-sm">
+                <li key={r._id} className="rounded border-2 border-late bg-paper p-3 text-sm [overflow-wrap:anywhere]">
                   <span className="font-bold text-late">{r.workflowName}</span>
                   {r.nodeName ? ` at "${r.nodeName}"` : ""}: {r.message}{" "}
                   <span className="text-ink-soft">(execution {r.executionId})</span>
@@ -82,7 +87,7 @@ function AdminDashboard() {
           {(rows) => (
             <ul className="divide-y-2 divide-board-hole rounded-lg border-2 border-ink bg-paper">
               {rows.map((u) => (
-                <li key={u._id} className="flex items-center justify-between gap-3 p-3">
+                <li key={u._id} className="flex flex-wrap items-center justify-between gap-3 p-3">
                   <span>
                     {u.name} {u.role === "admin" ? <span className="text-xs text-ink-soft">(admin)</span> : null}
                     {u.trustedLender ? (
@@ -90,6 +95,7 @@ function AdminDashboard() {
                     ) : null}
                   </span>
                   <Button
+                    disabled={busy}
                     onClick={() => run(() => setTrusted({ userId: u._id as Id<"users">, trusted: !u.trustedLender }))}
                   >
                     {u.trustedLender ? "Remove Trusted Lender" : "Mark Trusted Lender"}
@@ -106,7 +112,7 @@ function AdminDashboard() {
           {(rows) => (
             <ul className="divide-y-2 divide-board-hole rounded-lg border-2 border-ink bg-paper">
               {rows.map((t) => (
-                <li key={t._id} className="flex items-center justify-between gap-3 p-3">
+                <li key={t._id} className="flex flex-wrap items-center justify-between gap-3 p-3">
                   <span>
                     <span className="font-bold">{t.name}</span>{" "}
                     <span className="text-sm text-ink-soft">
@@ -115,6 +121,7 @@ function AdminDashboard() {
                   </span>
                   <Button
                     variant="danger"
+                    disabled={busy}
                     onClick={() => {
                       if (window.confirm(`Remove "${t.name}" by ${t.ownerName}?`)) {
                         void run(() => removeTool({ toolId: t._id }));

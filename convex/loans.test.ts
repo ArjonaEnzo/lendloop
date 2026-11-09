@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { insertLoan, makeUser, NOW, sampleTool, TODAY } from "../test-utils/fixtures";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
@@ -239,5 +239,37 @@ describe("views", () => {
     expect(JSON.stringify(incoming)).not.toContain("@example.com");
 
     expect(await carol.as.query(api.loans.incoming, { today: TODAY })).toEqual([]);
+  });
+
+  test("lastActivity is the most recent automation write-back, on every loan view", async () => {
+    const { t, owner, bob, admin, toolId } = await setup();
+    const loanId = await insertLoan(t, {
+      toolId,
+      borrowerId: bob.userId,
+      ownerId: owner.userId,
+      startDate: "2026-11-01",
+      endDate: "2026-11-07",
+      status: "approved",
+    });
+
+    await t.mutation(internal.automation.record, {
+      idempotencyKey: `notify:loan:${loanId}:approved:1`,
+      loanId,
+      kind: "request_notification_sent",
+    });
+    vi.advanceTimersByTime(60_000);
+    await t.mutation(internal.automation.record, {
+      idempotencyKey: `reminder:${loanId}:${TODAY}`,
+      loanId,
+      kind: "overdue_reminder_sent",
+    });
+
+    const expected = { kind: "overdue_reminder_sent", createdAt: NOW + 60_000 };
+    const [mine] = await bob.as.query(api.loans.myRequests, { today: TODAY });
+    expect(mine.lastActivity).toEqual(expected);
+    const [theirs] = await owner.as.query(api.loans.incoming, { today: TODAY });
+    expect(theirs.lastActivity).toEqual(expected);
+    const [adminView] = await admin.as.query(api.admin.allLoans, { today: TODAY });
+    expect(adminView.lastActivity).toEqual(expected);
   });
 });
