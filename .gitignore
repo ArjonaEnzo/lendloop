@@ -34,3 +34,6 @@ n8n/data/
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Personal notes (not part of the deliverable)
+prep/
