@@ -11,7 +11,9 @@ const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
 /** "2 days ago", "5 minutes ago", "yesterday" */
 export function relativeTime(fromMs: number, nowMs: number): string {
-  const seconds = Math.round((fromMs - nowMs) / 1000);
+  // Events are always in the past. `now` refreshes once a minute and the browser clock can lag
+  // the server, so a fresh event can look a few seconds "in the future": show it as "now".
+  const seconds = Math.min(0, Math.round((fromMs - nowMs) / 1000));
   const abs = Math.abs(seconds);
   if (abs < 60) return rtf.format(seconds, "second");
   if (abs < 3600) return rtf.format(Math.round(seconds / 60), "minute");
