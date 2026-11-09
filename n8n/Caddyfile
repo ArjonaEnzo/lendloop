@@ -1,0 +1,23 @@
+# Public entry point (via the Cloudflare tunnel). Only the LendLoop webhook gets through.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	@lendloop_webhook {
+		method POST
+		path /webhook/lendloop-loan-events
+	}
+
+	handle @lendloop_webhook {
+		request_body {
+			max_size 16KB
+		}
+		reverse_proxy n8n:5678
+	}
+
+	handle {
+		respond "not found" 404
+	}
+}

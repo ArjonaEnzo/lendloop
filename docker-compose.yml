@@ -1,0 +1,67 @@
+# Local automation stack for LendLoop: n8n + Mailpit (+ a webhook-only proxy and an optional tunnel).
+#
+#   bash scripts/setup-local-secrets.sh   # once: creates n8n/.env and sets the same secrets in Convex
+#   docker compose up -d                  # n8n http://localhost:5678, Mailpit http://localhost:8025
+#   bash scripts/tunnel.sh                # public HTTPS URL for Convex -> n8n (proxy only)
+#
+# Every host port is bound to 127.0.0.1: nothing here is reachable from the LAN.
+# The tunnel points at `proxy`, which forwards ONLY the LendLoop webhook path. The n8n editor
+# and API are never exposed publicly.
+
+name: lendloop
+
+services:
+  n8n:
+    image: n8nio/n8n:2.46.6
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    env_file: n8n/.env # gitignored; see n8n/.env.example
+    environment:
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_PROXY_HOPS: "1"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      # Code nodes need node:crypto (HMAC) and $env (secrets from n8n/.env).
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025" # web UI
+      - "127.0.0.1:1025:1025" # SMTP (n8n uses mailpit:1025 inside the network)
+
+  # Webhook-only reverse proxy. Forwards POST /webhook/lendloop-loan-events to n8n, 404 otherwise.
+  proxy:
+    image: caddy:2.11.9-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5680:8080" # local testing of what the tunnel sees
+    volumes:
+      - ./n8n/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - n8n
+
+  # Cloudflare Quick Tunnel (no account). Started by scripts/tunnel.sh. URL changes on every start.
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.7
+    profiles: ["tunnel"]
+    restart: "no"
+    command: ["tunnel", "--no-autoupdate", "--url", "http://proxy:8080"]
+    depends_on:
+      - proxy
+
+volumes:
+  n8n_data:

@@ -28,10 +28,12 @@ out=$(git grep -nIE --untracked \
 report "key pattern" "$out"
 
 # 2) Literal values from local env files (values >= 8 chars)
-for envfile in ${CHECK_SECRETS_ENV_FILES:-.env.local .env}; do
+for envfile in ${CHECK_SECRETS_ENV_FILES:-.env.local .env n8n/.env}; do
   [ -f "$envfile" ] || continue
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in ''|\#*) continue ;; esac
+    # Non-secret settings (placeholders/public URLs) that legitimately appear in docs and examples.
+    case "${line%%=*}" in OPS_EMAIL|CONVEX_SITE_URL|NEXT_PUBLIC_CONVEX_URL|CONVEX_DEPLOYMENT) continue ;; esac
     value="${line#*=}"
     value="${value%%#*}" # strip trailing comment
     value="$(printf '%s' "$value" | sed -e "s/^[[:space:]\"']*//" -e "s/[[:space:]\"']*\$//")"
