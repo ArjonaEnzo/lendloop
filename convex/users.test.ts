@@ -69,6 +69,15 @@ describe("users.store", () => {
     expect(me?.role).toBe("user");
   });
 
+  test("revoking ADMIN_EMAILS removes admin immediately, without a new store call", async () => {
+    const t = convexTest(schema, modules);
+    const boss = { ...alice, tokenIdentifier: "https://clerk.test|boss", email: "boss@example.com" };
+    await t.withIdentity(boss).mutation(api.users.store, {});
+    process.env.ADMIN_EMAILS = "";
+    const me = await t.withIdentity(boss).query(api.users.me, {});
+    expect(me?.role).toBe("user");
+  });
+
   test("throws when not signed in", async () => {
     const t = convexTest(schema, modules);
     await expect(t.mutation(api.users.store, {})).rejects.toThrow("Not signed in");
