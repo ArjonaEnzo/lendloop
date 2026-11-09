@@ -1,8 +1,31 @@
-node_modules/
-.next/
-.env
-.env.local
-.env*.local
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# env files — real values never committed; examples are
+.env*
+!.env.example
+!.env.local.example
+
+# n8n local data (credentials, encryption key)
 n8n/data/
-*.log
+
+# misc
 .DS_Store
+*.pem
+*.log
+.vercel
+
+# superpowers plan workspace
+.superpowers/
