@@ -1,4 +1,4 @@
-# Request signing (draft for README, Task 14)
+# Request signing (n8n side reference)
 
 Both directions use the same scheme (`convex/lib/hmac.ts`).
 

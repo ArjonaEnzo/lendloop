@@ -18,9 +18,9 @@ describe("sign", () => {
   test("matches node:crypto HMAC-SHA256 hex (what the n8n Code node computes)", async () => {
     const expected = createHmac("sha256", SECRET).update(CANONICAL).digest("hex");
     const actual = await sign(SECRET, CANONICAL);
-    // Fixed vector for the README / n8n side.
-    console.log(`HMAC vector: secret=${SECRET} canonical=${CANONICAL} hex=${actual}`);
     expect(actual).toBe(expected);
+    // Fixed vector published in README.md and docs/n8n-signing.md.
+    expect(actual).toBe("a7a5eb0d86209484fa6b1524199f9fb7ffcfee26aae250c4ca68fe2cb1243582");
     expect(actual).toMatch(/^[0-9a-f]{64}$/);
   });
 });
