@@ -1,15 +1,14 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
 import { LoanList } from "@/components/LoanList";
 import { PageTitle } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
-import { todayUtc } from "@/lib/ui";
+import { useToday } from "@/lib/useToday";
 
 export default function IncomingRequestsPage() {
-  const [today] = useState(todayUtc);
-  const loans = useQuery(api.loans.incoming, { today });
+  const today = useToday();
+  const loans = useQuery(api.loans.incoming, today ? { today } : "skip");
   const approve = useMutation(api.loans.approve);
   const decline = useMutation(api.loans.decline);
   const markReturned = useMutation(api.loans.markReturned);

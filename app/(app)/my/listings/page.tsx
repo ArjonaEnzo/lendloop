@@ -6,11 +6,12 @@ import { ToolForm } from "@/components/ToolForm";
 import { Button, ErrorText, ListState, PageTitle } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { categoryLabel, conditionLabel, errorMessage, todayUtc } from "@/lib/ui";
+import { categoryLabel, conditionLabel, errorMessage } from "@/lib/ui";
+import { useToday } from "@/lib/useToday";
 
 export default function MyListingsPage() {
-  const [today] = useState(todayUtc);
-  const tools = useQuery(api.tools.myListings, { today });
+  const today = useToday();
+  const tools = useQuery(api.tools.myListings, today ? { today } : "skip");
   const create = useMutation(api.tools.create);
   const update = useMutation(api.tools.update);
   const remove = useMutation(api.tools.remove);

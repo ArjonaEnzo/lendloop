@@ -6,7 +6,8 @@ import { LoanList } from "@/components/LoanList";
 import { Button, ErrorText, ListState, PageTitle } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { categoryLabel, errorMessage, todayUtc } from "@/lib/ui";
+import { categoryLabel, errorMessage } from "@/lib/ui";
+import { useToday } from "@/lib/useToday";
 
 export default function AdminPage() {
   const me = useQuery(api.users.me);
@@ -21,10 +22,10 @@ export default function AdminPage() {
 }
 
 function AdminDashboard() {
-  const [today] = useState(todayUtc);
-  const loans = useQuery(api.admin.allLoans, { today });
+  const today = useToday();
+  const loans = useQuery(api.admin.allLoans, today ? { today } : "skip");
   const users = useQuery(api.admin.users);
-  const tools = useQuery(api.tools.listCatalog, { today });
+  const tools = useQuery(api.tools.listCatalog, today ? { today } : "skip");
   const failed = useQuery(api.admin.failedDeliveries);
   const errors = useQuery(api.admin.workflowErrors);
   const setTrusted = useMutation(api.admin.setTrustedLender);

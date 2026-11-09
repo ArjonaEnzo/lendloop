@@ -3,13 +3,13 @@
 import { Show, SignInButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { useState } from "react";
 import { api } from "@/convex/_generated/api";
-import { categoryLabel, todayUtc } from "@/lib/ui";
+import { categoryLabel } from "@/lib/ui";
+import { useToday } from "@/lib/useToday";
 
 export default function PublicPage() {
-  const [today] = useState(todayUtc);
-  const tools = useQuery(api.tools.listPublic, { today });
+  const today = useToday();
+  const tools = useQuery(api.tools.listPublic, today ? { today } : "skip");
 
   return (
     <>

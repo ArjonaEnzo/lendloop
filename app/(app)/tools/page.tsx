@@ -7,7 +7,8 @@ import { RequestForm } from "@/components/RequestForm";
 import { Button, ListState, PageTitle } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { CATEGORIES, type Category, categoryLabel, conditionLabel, todayUtc } from "@/lib/ui";
+import { CATEGORIES, type Category, categoryLabel, conditionLabel } from "@/lib/ui";
+import { useToday } from "@/lib/useToday";
 
 export default function CatalogPage() {
   return (
@@ -22,8 +23,8 @@ function Catalog() {
   const params = useSearchParams();
   const raw = params.get("category");
   const category = CATEGORIES.some((c) => c.value === raw) ? (raw as Category) : undefined;
-  const [today] = useState(todayUtc);
-  const tools = useQuery(api.tools.listCatalog, { today, category });
+  const today = useToday();
+  const tools = useQuery(api.tools.listCatalog, today ? { today, category } : "skip");
   const [requesting, setRequesting] = useState<Id<"tools"> | null>(null);
   const [sent, setSent] = useState<Id<"tools"> | null>(null);
 
