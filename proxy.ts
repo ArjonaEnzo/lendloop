@@ -1,11 +1,9 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-// Optimistic redirect for signed-out visitors. Real authorization happens in Convex functions.
-const isSignedInArea = createRouteMatcher(["/tools(.*)", "/my(.*)", "/admin(.*)"]);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isSignedInArea(req)) await auth.protect();
-});
+// Clerk only keeps the session in sync here. We do NOT authorize by URL path:
+// every Convex function checks the caller itself, and signed-in pages show a
+// sign-in prompt when there is no session (see components/EnsureUser.tsx).
+export default clerkMiddleware();
 
 export const config = {
   matcher: [
