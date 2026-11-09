@@ -10,6 +10,9 @@
 
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dates from "../lib/dates.js";
+import type * as lib_outbox from "../lib/outbox.js";
+import type * as lib_payloads from "../lib/payloads.js";
+import type * as tools from "../tools.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,6 +24,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/dates": typeof lib_dates;
+  "lib/outbox": typeof lib_outbox;
+  "lib/payloads": typeof lib_payloads;
+  tools: typeof tools;
   users: typeof users;
 }>;
 
