@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { LoanList } from "@/components/LoanList";
-import { PageTitle } from "@/components/ui";
+import { Empty, PageTitle } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import { useToday } from "@/lib/useToday";
 
@@ -20,7 +20,13 @@ export default function IncomingRequestsPage() {
       </PageTitle>
       <LoanList
         loans={loans}
-        empty="No requests for your tools yet."
+        empty={
+          <Empty
+            title="No requests yet"
+            body="When a neighbor asks for one of your tools, it shows up here to approve or decline."
+            action={{ href: "/my/listings", label: "See your listings" }}
+          />
+        }
         counterpartLabel="Borrower"
         actions={[
           {
