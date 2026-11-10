@@ -1,20 +1,65 @@
 @import "tailwindcss";
 
-/* LendLoop tokens: a neighborhood workshop. Pegboard, ink, manila tool tags, signal yellow. */
+/* LendLoop tokens: a neighborhood workshop. Pegboard, ink, manila tool tags, signal yellow, rubber stamps. */
 @theme {
   --color-board: #e6ecf1;
   --color-board-hole: #c9d3dc;
   --color-ink: #16263f;
   --color-ink-soft: #4a5a72;
+  --color-rule: #74849b;
   --color-tag: #ead7a8;
   --color-tag-edge: #c9b27a;
+  --color-tag-ink: #16263f;
+  --color-tag-soft: #4f4a3a;
+  /* Text on manila. The tag stays manila in dark mode too, so these never flip. */
+  --color-tag-ok: #22684a;
+  --color-tag-late: #9c2f3c;
   --color-signal: #f2b705;
+  --color-on-signal: #16263f;
   --color-ok: #2e7d5b;
   --color-late: #b23a48;
   --color-paper: #ffffff;
+  --color-focus: #16263f;
+  --color-shadow: #16263f;
+  /* What you see through a tag's hole: the board behind it. Not reset by .on-tag. */
+  --color-hole: #e6ecf1;
 
   --font-display: var(--font-archivo), system-ui, sans-serif;
   --font-sans: var(--font-atkinson), system-ui, sans-serif;
+  --font-mono: var(--font-atkinson-mono), ui-monospace, monospace;
+}
+
+/* Workshop at night. Same names, so components never branch on the theme. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-board: #0f1622;
+    --color-board-hole: #24314a;
+    --color-ink: #e7edf4;
+    --color-ink-soft: #a6b3c5;
+    --color-rule: #5d6c84;
+    --color-ok: #5fd19a;
+    --color-late: #ff8a94;
+    --color-paper: #182234;
+    --color-focus: #f2b705;
+    --color-shadow: #000000;
+    --color-hole: #0f1622;
+    color-scheme: dark;
+  }
+}
+
+/* A manila tag is a light object in both themes: everything printed on it uses the light tokens. */
+.on-tag {
+  --color-board: #e6ecf1;
+  --color-board-hole: #c9d3dc;
+  --color-ink: #16263f;
+  --color-ink-soft: #4a5a72;
+  --color-ok: #22684a;
+  --color-late: #9c2f3c;
+  --color-paper: #ffffff;
+  --color-focus: #16263f;
+  --color-shadow: #16263f;
+  color-scheme: light;
+  color: var(--color-tag-ink);
 }
 
 body {
@@ -23,17 +68,45 @@ body {
   font-family: var(--font-sans);
 }
 
-/* The perforated pegboard: a dot grid. Used only behind the public tag wall. */
+/* The perforated pegboard: a dot grid. */
 .pegboard {
   background-color: var(--color-board);
   background-image: radial-gradient(var(--color-board-hole) 2.2px, transparent 2.6px);
   background-size: 22px 22px;
 }
 
-/* Visible keyboard focus everywhere. */
+/* Visible keyboard focus everywhere: ink on light (>= 13:1), signal yellow on dark. */
 :focus-visible {
-  outline: 3px solid var(--color-signal);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+/* Rubber stamp: inked border, slight tilt, letters a little uneven. */
+.stamp {
+  display: inline-block;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  transform: rotate(-3deg);
+}
+
+/* Loading placeholder blocks. */
+.skeleton {
+  background: var(--color-board-hole);
+  border-radius: 6px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
