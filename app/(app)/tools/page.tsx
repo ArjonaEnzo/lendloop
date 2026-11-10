@@ -4,15 +4,16 @@ import { useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { RequestForm } from "@/components/RequestForm";
-import { Button, ListState, PageTitle } from "@/components/ui";
+import { ToolTag } from "@/components/ToolTag";
+import { Button, Empty, ListState, PageTitle } from "@/components/ui";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { CATEGORIES, type Category, categoryLabel, conditionLabel } from "@/lib/ui";
+import { CATEGORIES, type Category, categoryLabel } from "@/lib/ui";
 import { useToday } from "@/lib/useToday";
 
 export default function CatalogPage() {
   return (
-    <Suspense fallback={<p className="py-10 text-ink-soft">Loading…</p>}>
+    <Suspense fallback={null}>
       <Catalog />
     </Suspense>
   );
@@ -38,7 +39,11 @@ function Catalog() {
         Catalog
       </PageTitle>
 
-      <div role="group" aria-label="Filter by category" className="mb-6 flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-label="Filter by category"
+        className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      >
         <FilterChip active={!category} onClick={() => pick(undefined)}>
           All
         </FilterChip>
@@ -51,48 +56,65 @@ function Catalog() {
 
       <ListState
         items={tools}
-        empty={category ? `No ${categoryLabel(category).toLowerCase()} tools yet.` : "No tools listed yet. Add yours in My listings."}
+        skeleton="tags"
+        empty={
+          category ? (
+            <Empty
+              title={`No ${categoryLabel(category).toLowerCase()} on the board yet`}
+              body="Try another category, or lend one of yours."
+              action={{ href: "/my/listings", label: "List a tool" }}
+            />
+          ) : (
+            <Empty
+              title="The board is empty"
+              body="Hang the first tool. Your neighbors will see it here."
+              action={{ href: "/my/listings", label: "List a tool" }}
+            />
+          )
+        }
       >
         {(rows) => (
-          <ul className="divide-y-2 divide-board-hole rounded-lg border-2 border-ink bg-paper">
+          <ul className="grid items-start gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {rows.map((tool) => (
-              <li key={tool._id} className="p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-display text-xl font-bold [font-stretch:85%]">{tool.name}</p>
-                    <p className="text-sm text-ink-soft">
-                      {categoryLabel(tool.category)}, {conditionLabel(tool.condition).toLowerCase()} condition. Lent by{" "}
-                      {tool.isMine ? "you" : tool.ownerName}
-                      {tool.ownerTrusted ? (
-                        <span className="ml-2 rounded bg-ink px-1.5 py-0.5 text-xs font-bold text-signal">
-                          Trusted Lender
-                        </span>
-                      ) : null}
-                    </p>
-                    {tool.description ? <p className="mt-2 max-w-prose">{tool.description}</p> : null}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold ${tool.available ? "text-ok" : "text-late"}`}>
-                      {tool.available ? "Available today" : "Lent out today"}
-                    </span>
-                    {!tool.isMine && requesting !== tool._id ? (
-                      <Button variant="primary" onClick={() => { setRequesting(tool._id); setSent(null); }}>
-                        Request to borrow
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-                {requesting === tool._id ? (
-                  <RequestForm
-                    toolId={tool._id}
-                    onSent={() => {
-                      setRequesting(null);
-                      setSent(tool._id);
-                    }}
-                    onCancel={() => setRequesting(null)}
-                  />
-                ) : null}
-                {sent === tool._id ? <p className="mt-2 text-sm text-ok">Request sent. Track it in My requests.</p> : null}
+              <li key={tool._id}>
+                <ToolTag
+                  name={tool.name}
+                  category={tool.category}
+                  condition={tool.condition}
+                  description={tool.description}
+                  available={tool.available}
+                  owner={tool.isMine ? "you" : tool.ownerName}
+                  mine={tool.isMine}
+                  trusted={tool.ownerTrusted}
+                >
+                  {tool.isMine ? (
+                    <p className="text-sm text-tag-soft">This is your tool.</p>
+                  ) : requesting === tool._id ? (
+                    <RequestForm
+                      toolId={tool._id}
+                      toolName={tool.name}
+                      onSent={() => {
+                        setRequesting(null);
+                        setSent(tool._id);
+                      }}
+                      onCancel={() => setRequesting(null)}
+                    />
+                  ) : (
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={() => {
+                        setRequesting(tool._id);
+                        setSent(null);
+                      }}
+                    >
+                      Request to borrow
+                    </Button>
+                  )}
+                  <p role="status" className="text-sm font-bold text-tag-ink empty:hidden">
+                    {sent === tool._id ? "Request sent. Track it in My requests." : ""}
+                  </p>
+                </ToolTag>
               </li>
             ))}
           </ul>
@@ -108,7 +130,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full border-2 px-3 py-1 text-sm ${active ? "border-ink bg-ink text-paper" : "border-board-hole bg-paper text-ink"}`}
+      className={`min-h-9 shrink-0 rounded-full border-2 px-3 text-sm ${active ? "border-ink bg-ink text-paper" : "border-ink-soft bg-paper text-ink hover:border-ink"}`}
     >
       {children}
     </button>
