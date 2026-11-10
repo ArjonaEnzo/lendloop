@@ -1,6 +1,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
-import { Archivo, Atkinson_Hyperlegible } from "next/font/google";
+import { Archivo, Atkinson_Hyperlegible, Atkinson_Hyperlegible_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
@@ -11,6 +11,15 @@ const atkinson = Atkinson_Hyperlegible({
   weight: ["400", "700"],
   variable: "--font-atkinson",
 });
+// Same family as the body text, used only for what a workshop would stamp or print: dates, bin codes, IDs.
+const atkinsonMono = Atkinson_Hyperlegible_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-atkinson-mono",
+  // Next has no fallback metrics for this family yet; use the system mono instead of a guessed one.
+  adjustFontFallback: false,
+  fallback: ["ui-monospace", "monospace"],
+});
 
 export const metadata: Metadata = {
   title: "LendLoop",
@@ -19,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${archivo.variable} ${atkinson.variable}`}>
+    <html lang="en" className={`${archivo.variable} ${atkinson.variable} ${atkinsonMono.variable}`}>
       <body className="min-h-screen antialiased">
         <ClerkProvider>
           <ConvexClientProvider>
