@@ -37,3 +37,6 @@ skills-lock.json
 
 # Personal notes (not part of the deliverable)
 prep/
+
+# Local working notes stay on this machine
+/STATUS.md
