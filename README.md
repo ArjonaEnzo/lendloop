@@ -9,11 +9,15 @@ activity, for example *"Reminder sent 2 days ago"*.
 
 Stack: Next.js 16 (App Router) · TypeScript · Tailwind 4 · Clerk · Convex · n8n 2.46 (Docker) · Mailpit.
 
-![Incoming requests with automation activity](docs/screenshots/incoming.png)
+![My requests: each loan as a checkout card with a stamped status, progress and automation activity](docs/screenshots/my-requests.jpg)
 
-| Mailpit: notification email | Admin: automation problems |
+| Catalog: tool tags and the date-range request | Mailpit: notification email |
 |---|---|
-| ![Email in Mailpit](docs/screenshots/mailpit.png) | ![Failed delivery in /admin](docs/screenshots/admin.png) |
+| ![Catalog with the request form open](docs/screenshots/catalog.jpg) | ![Email in Mailpit](docs/screenshots/mailpit.png) |
+
+| Admin: automation problems |
+|---|
+| ![Failed delivery in /admin](docs/screenshots/admin.jpg) |
 
 ## Contents
 
@@ -41,6 +45,17 @@ Stack: Next.js 16 (App Router) · TypeScript · Tailwind 4 · Clerk · Convex ·
 Loan states: `requested → approved → returned`, or `requested → declined | cancelled`. Approving a loan
 auto-declines other pending requests for overlapping days. A loan is **overdue** from the day after its
 end date (UTC).
+
+### Design
+
+One visual idea, carried through every view: a neighborhood workshop. Tools hang on a pegboard as
+manila tags (with a bin code like `PWR` for the category), and each loan is a checkout card with the
+status as a rubber stamp and a three-step progress bar. Archivo (condensed) for headings, Atkinson
+Hyperlegible for text, and its mono cut for dates and codes. The palette is ink, manila and signal
+yellow, with a dark "workshop at night" theme built from the same tokens. Accessibility checks: text
+contrast is AA in both themes, the focus ring is at least 3:1, buttons are at least 40px tall, and
+status messages are announced to screen readers. Lighthouse on `/` (mobile) scores 100 for
+Accessibility and 100 for SEO. Spec: `docs/superpowers/specs/2026-11-09-ui-polish-design.md`.
 
 ## Quick start
 
