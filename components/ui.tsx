@@ -1,9 +1,10 @@
+import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export function PageTitle({ children, hint }: { children: ReactNode; hint?: ReactNode }) {
   return (
     <div className="pt-10 pb-6">
-      <h1 className="font-display text-4xl font-extrabold tracking-tight [font-stretch:80%]">{children}</h1>
+      <h1 className="font-display text-4xl font-extrabold tracking-tight [font-stretch:80%] sm:text-5xl">{children}</h1>
       {hint ? <p className="mt-2 max-w-2xl text-ink-soft">{hint}</p> : null}
     </div>
   );
@@ -11,23 +12,27 @@ export function PageTitle({ children, hint }: { children: ReactNode; hint?: Reac
 
 type Variant = "primary" | "plain" | "danger";
 
+const BASE =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 py-1.5 text-sm transition-[transform,box-shadow] disabled:cursor-not-allowed disabled:opacity-50";
+
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-signal text-ink font-bold shadow-[2px_2px_0_var(--color-ink)]",
-  plain: "border-2 border-ink bg-paper text-ink",
-  danger: "border-2 border-late bg-paper text-late",
+  // The only filled button: signal yellow, pressed into the board on click.
+  primary:
+    "bg-signal text-on-signal font-bold shadow-[2px_2px_0_var(--color-shadow)] active:translate-x-px active:translate-y-px active:shadow-none",
+  plain: "border-2 border-ink bg-paper text-ink hover:bg-board",
+  danger: "border-2 border-late bg-paper text-late hover:bg-board",
 };
+
+export function buttonClass(variant: Variant = "plain", className = "") {
+  return `${BASE} ${VARIANTS[variant]} ${className}`;
+}
 
 export function Button({
   variant = "plain",
   className = "",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  return (
-    <button
-      {...props}
-      className={`rounded px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
-    />
-  );
+  return <button {...props} className={buttonClass(variant, className)} />;
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
@@ -39,47 +44,111 @@ export function ErrorText({ children }: { children: ReactNode }) {
   );
 }
 
+/** Empty state: an invitation to act, not an apology. */
+export function Empty({ title, body, action }: { title: string; body?: string; action?: { href: string; label: string } }) {
+  return (
+    <div className="rounded-lg border-2 border-dashed border-rule p-6 sm:p-8">
+      <p className="font-display text-xl font-bold [font-stretch:85%]">{title}</p>
+      {body ? <p className="mt-1 max-w-prose text-ink-soft">{body}</p> : null}
+      {action ? (
+        <Link href={action.href} className={buttonClass("plain", "mt-4")}>
+          {action.label}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+/** Loading placeholders shaped like the content that will replace them. */
+function Skeleton({ shape }: { shape: "rows" | "tags" }) {
+  const blocks = shape === "tags" ? 3 : 2;
+  return (
+    <div role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading…</span>
+      <div className={shape === "tags" ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3" : "space-y-3"}>
+        {Array.from({ length: blocks }, (_, i) => (
+          <div key={i} className={`skeleton ${shape === "tags" ? "h-52" : "h-24"}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Loading / empty / list in one place so every view handles all three states. */
 export function ListState<T>({
   items,
   empty,
+  skeleton = "rows",
   children,
 }: {
   items: T[] | undefined;
   empty: ReactNode;
+  skeleton?: "rows" | "tags";
   children: (items: T[]) => ReactNode;
 }) {
-  if (items === undefined) return <p className="text-ink-soft">Loading…</p>;
-  if (items.length === 0) return <div className="rounded-lg border-2 border-dashed border-board-hole bg-paper/60 p-6 text-ink-soft">{empty}</div>;
+  if (items === undefined) return <Skeleton shape={skeleton} />;
+  if (items.length === 0) return <>{empty}</>;
   return <>{children(items)}</>;
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  requested: "bg-tag text-ink",
-  approved: "bg-ok text-paper",
-  declined: "bg-board-hole text-ink",
-  cancelled: "bg-board-hole text-ink",
-  returned: "bg-paper text-ink-soft border border-ink-soft",
-  overdue: "bg-late text-paper",
+/* Loan status as a rubber stamp. Each status has its own word, so color is never the only signal. */
+const STAMP: Record<string, { label: string; className: string }> = {
+  requested: { label: "Pending", className: "text-ink" },
+  approved: { label: "Approved", className: "text-ok" },
+  declined: { label: "Declined", className: "text-late" },
+  cancelled: { label: "Cancelled", className: "text-ink-soft" },
+  returned: { label: "Returned", className: "text-ink-soft" },
+  overdue: { label: "Overdue", className: "border-late bg-late text-paper" },
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  requested: "Waiting for owner",
-  approved: "Approved",
-  declined: "Declined",
-  cancelled: "Cancelled",
-  returned: "Returned",
-  overdue: "Overdue",
-};
+export function StatusStamp({ status, overdue }: { status: string; overdue?: boolean }) {
+  const stamp = STAMP[overdue ? "overdue" : status] ?? STAMP.requested;
+  return <span className={`stamp ${stamp.className}`}>{stamp.label}</span>;
+}
 
-export function StatusBadge({ status, overdue }: { status: string; overdue?: boolean }) {
-  const key = overdue ? "overdue" : status;
+/**
+ * Where the loan is: asked, approved, back. Overdue paints the last step red;
+ * declined and cancelled stop after the first step.
+ */
+export function LoanProgress({ status, overdue }: { status: string; overdue?: boolean }) {
+  const reached = status === "returned" ? 3 : status === "approved" ? 2 : 1;
+  const stopped = status === "declined" || status === "cancelled";
+  const steps = ["Requested", "Approved", "Returned"];
   return (
-    <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${STATUS_STYLE[key]}`}>
-      {STATUS_LABEL[key]}
+    <ol aria-label="Loan progress" className="mt-3 grid max-w-xs grid-cols-3 gap-1">
+      {steps.map((step, i) => {
+        const done = !stopped ? i < reached : i === 0;
+        const late = overdue && i === 2;
+        const color = late ? "bg-late" : done ? (stopped ? "bg-ink-soft" : "bg-ink") : "bg-board-hole";
+        return (
+          <li key={step} className="text-[0.7rem] text-ink-soft">
+            <span aria-hidden className={`mb-1 block h-1.5 rounded-full ${color}`} />
+            <span className={done || late ? "text-ink" : undefined}>
+              {late ? "Due back" : step}
+              <span className="sr-only">{done ? " (done)" : late ? " (overdue)" : " (not yet)"}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Initial in a circle, for owners and borrowers. */
+export function Avatar({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-paper"
+    >
+      {name.trim().charAt(0).toUpperCase() || "?"}
     </span>
   );
 }
 
+export function TrustedBadge() {
+  return <span className="rounded bg-on-signal px-1.5 py-0.5 text-xs font-bold text-signal">Trusted Lender</span>;
+}
+
 export const inputClass =
-  "mt-1 w-full rounded border-2 border-ink-soft bg-paper px-2 py-1.5 text-ink focus:border-ink";
+  "mt-1 min-h-10 w-full rounded border-2 border-ink-soft bg-paper px-2 py-1.5 text-ink focus:border-ink";

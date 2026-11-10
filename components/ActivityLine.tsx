@@ -30,7 +30,7 @@ export function ActivityLine({ activity }: { activity: { kind: string; createdAt
   }, []);
   if (!activity) return null;
   return (
-    <p className="mt-1 text-xs text-ink-soft">
+    <p className="mt-2 text-xs text-ink-soft">
       {KIND_LABEL[activity.kind] ?? "Automation ran"} {relativeTime(activity.createdAt, now)}
     </p>
   );

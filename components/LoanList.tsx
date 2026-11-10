@@ -2,9 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
-import { errorMessage, shortDate } from "@/lib/ui";
+import { errorMessage, rangeDays, shortDate } from "@/lib/ui";
 import { ActivityLine } from "./ActivityLine";
-import { Button, ErrorText, ListState, StatusBadge } from "./ui";
+import { Avatar, Button, ErrorText, ListState, LoanProgress, StatusStamp } from "./ui";
 
 export type LoanView = {
   _id: Id<"loans">;
@@ -58,40 +58,70 @@ export function LoanList({
   return (
     <ListState items={loans} empty={empty}>
       {(rows) => (
-        <ul className="divide-y-2 divide-board-hole rounded-lg border-2 border-ink bg-paper">
-          {rows.map((loan) => (
-            <li key={loan._id} className="p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-display text-xl font-bold [font-stretch:85%]">{loan.toolName}</p>
-                    <StatusBadge status={loan.status} overdue={loan.overdue} />
+        <ul className="space-y-4">
+          {rows.map((loan) => {
+            const days = rangeDays(loan.startDate, loan.endDate);
+            const available = actions.filter((a) => a.when(loan));
+            return (
+              <li
+                key={loan._id}
+                className={`rounded-md border-2 bg-paper p-4 ${loan.overdue ? "border-late" : "border-ink"}`}
+              >
+                <article aria-label={`${loan.toolName}, ${shortDate(loan.startDate)} to ${shortDate(loan.endDate)}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="font-display text-xl leading-tight font-bold [font-stretch:85%] [overflow-wrap:anywhere]">
+                      {loan.toolName}
+                    </h2>
+                    <StatusStamp status={loan.status} overdue={loan.overdue} />
                   </div>
-                  <p className="text-sm text-ink-soft">
-                    {shortDate(loan.startDate)} to {shortDate(loan.endDate)}. {counterpartLabel}:{" "}
-                    {loan.counterpartName}
+
+                  <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                    <div>
+                      <dt className="text-xs text-ink-soft">Out</dt>
+                      <dd className="font-mono">{shortDate(loan.startDate)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-ink-soft">Due back</dt>
+                      <dd className={`font-mono ${loan.overdue ? "font-bold text-late" : ""}`}>{shortDate(loan.endDate)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-ink-soft">Length</dt>
+                      <dd className="font-mono">
+                        {days} {days === 1 ? "day" : "days"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-ink-soft">{counterpartLabel}</dt>
+                      <dd className="flex items-center gap-1.5">
+                        <Avatar name={loan.counterpartName} />
+                        {loan.counterpartName}
+                      </dd>
+                    </div>
                     {extra ? extra(loan) : null}
-                  </p>
+                  </dl>
+
+                  <LoanProgress status={loan.status} overdue={loan.overdue} />
                   <ActivityLine activity={loan.lastActivity} />
-                </div>
-                <div className="flex gap-2">
-                  {actions
-                    .filter((a) => a.when(loan))
-                    .map((a) => (
-                      <Button
-                        key={a.label}
-                        variant={a.variant}
-                        disabled={busy !== null}
-                        onClick={() => act(loan, a)}
-                      >
-                        {busy === `${loan._id}:${a.label}` ? "Working…" : a.label}
-                      </Button>
-                    ))}
-                </div>
-              </div>
-              {error?.id === loan._id ? <ErrorText>{error.message}</ErrorText> : null}
-            </li>
-          ))}
+
+                  {available.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2 *:flex-1 sm:*:flex-none">
+                      {available.map((a) => (
+                        <Button
+                          key={a.label}
+                          variant={a.variant}
+                          disabled={busy !== null}
+                          onClick={() => act(loan, a)}
+                        >
+                          {busy === `${loan._id}:${a.label}` ? "Working…" : a.label}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {error?.id === loan._id ? <ErrorText>{error.message}</ErrorText> : null}
+                </article>
+              </li>
+            );
+          })}
         </ul>
       )}
     </ListState>
