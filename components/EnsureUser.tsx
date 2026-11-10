@@ -4,6 +4,7 @@ import { SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
+import { buttonClass } from "./ui";
 
 /**
  * Gate for the signed-in area.
@@ -28,20 +29,22 @@ export function EnsureUser({ children }: { children: ReactNode }) {
     };
   }, [isAuthenticated, store]);
 
-  if (isLoading) return <p className="py-10 text-ink-soft">Loading…</p>;
+  if (isLoading) return <p role="status" className="py-10 text-ink-soft">Loading…</p>;
   if (!isAuthenticated) {
     return (
-      <div className="py-12">
-        <p className="mb-4 text-lg">Sign in to lend or borrow tools.</p>
+      <section className="mx-auto max-w-md py-16 text-center sm:py-24">
+        <span aria-hidden className="mx-auto block h-5 w-5 rounded-full border-4 border-ink bg-signal" />
+        <h1 className="mt-6 font-display text-4xl font-extrabold tracking-tight [font-stretch:80%]">
+          Sign in to use the board
+        </h1>
+        <p className="mt-3 text-ink-soft">Borrow from your neighbors, or lend the tools you rarely use.</p>
         <SignInButton mode="modal">
-          <button className="rounded bg-signal px-5 py-3 font-bold text-ink shadow-[3px_3px_0_var(--color-ink)]">
-            Sign in
-          </button>
+          <button className={buttonClass("primary", "mt-8 min-h-12 w-full px-6 text-base sm:w-auto")}>Sign in</button>
         </SignInButton>
-      </div>
+      </section>
     );
   }
   if (failed) return <p className="py-10 text-late">We couldn&apos;t load your account. Refresh the page.</p>;
-  if (!ready) return <p className="py-10 text-ink-soft">Loading…</p>;
+  if (!ready) return <p role="status" className="py-10 text-ink-soft">Loading…</p>;
   return <>{children}</>;
 }
