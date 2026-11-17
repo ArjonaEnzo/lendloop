@@ -56,7 +56,7 @@ services:
 
   # Cloudflare Quick Tunnel (no account). Started by scripts/tunnel.sh. URL changes on every start.
   tunnel:
-    image: cloudflare/cloudflared:2026.10.7
+    image: cloudflare/cloudflared:2026.11.0
     profiles: ["tunnel"]
     restart: "no"
     command: ["tunnel", "--no-autoupdate", "--url", "http://proxy:8080"]
